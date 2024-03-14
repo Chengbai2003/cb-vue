@@ -1,6 +1,9 @@
 import { extend } from "../shared"
 
-class ReactiveEffect {
+let shouldTrack
+let activeEffect
+
+export class ReactiveEffect {
     private _fn: any
     deps = []
     onStop?: () => void
@@ -12,8 +15,18 @@ class ReactiveEffect {
         this.scheduler = scheduler
     }
     run() {
+        // 避免重复收集
+        if(!this.active){
+            return this._fn()
+        }
+
+        // 执行fn 并 收集依赖
         activeEffect = this
-        return this._fn()
+        shouldTrack = true
+        const result = this._fn()
+        activeEffect = undefined
+        shouldTrack = false
+        return result
     }
     stop() {
         // 性能问题 频繁调用清空 但是第一次已经清空
@@ -29,10 +42,14 @@ class ReactiveEffect {
 
 function cleanupEffect(effct) {
     effct.deps.forEach((dep: any) => dep.delete(effct))
+    effct.deps.length = 0
 }
 
 const targetMap = new Map()
 export function track(target, key) {
+    if(!isTracking()){
+        return
+    }
     // target -> key -> dep
     let depsMap = targetMap.get(target)
     if(!depsMap) {
@@ -44,16 +61,28 @@ export function track(target, key) {
         dep = new Set()
         depsMap.set(key, dep)
     }
+    trackEffects(dep)
+}
 
-    if(!activeEffect) return
-
+export function trackEffects(dep) {
+    if(dep.has(activeEffect)) return
     dep.add(activeEffect)
     activeEffect.deps.push(dep)
 }
+
+
+export function isTracking() {
+    return shouldTrack && activeEffect !== undefined
+}
+
 export function trigger(target, key){
     let depsMap = targetMap.get(target)
     let dep = depsMap.get(key)
 
+    triggerEffects(dep)
+}
+
+export function triggerEffects(dep) {
     for(const effect of dep){
         if(effect.scheduler) {
             effect.scheduler()
@@ -63,7 +92,6 @@ export function trigger(target, key){
     }
 }
 
-let activeEffect
 export function effect(fn, options: any = {}) {
     // fn
     const _effect = new ReactiveEffect(fn,options.scheduler)
