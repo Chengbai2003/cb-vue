@@ -3,14 +3,20 @@ import { shallowReadonly } from "../reactivity/reactive"
 import { initProps } from "./componentProps"
 import { PublicInstanceProxyHandlers } from "./componentPubliceInstance"
 import { initSlots } from "./componentSlots"
+import { proxyRefs } from "../reactivity"
 
-export function createComponentInstance(vnode) {
+export function createComponentInstance(vnode,parent) {
+    // console.log("createComponentInstance",parent)
     const component = {
         vnode,
         type: vnode.type,
         setupState: {},
         props: {},
         slots: {},
+        provides: parent ? parent.provides : {},
+        parent,
+        isMounted: false,
+        subTree: {},
         emit: () => {},
     }
     component.emit = emit.bind(null,component) as any
@@ -31,11 +37,11 @@ function setupStatefulComponent(instance: any) {
 
     const { setup } = Component
     if(setup){
-
+        setCurrentInstance(instance)
         const setupResult = setup(shallowReadonly(instance.props),{
-
             emit: instance.emit,
         })
+        setCurrentInstance(null)
 
         handleSetupResult(instance,setupResult)
     }
@@ -43,7 +49,7 @@ function setupStatefulComponent(instance: any) {
 function handleSetupResult(instance: any, setupResult: any) {
     // setup:return function, obj
     if(typeof setupResult === 'object') {
-        instance.setupState = setupResult
+        instance.setupState = proxyRefs(setupResult)
     }
 
     finishComponentSetup(instance)
@@ -55,3 +61,12 @@ function finishComponentSetup(instance: any) {
     
 }
 
+let currenInstance = null
+
+export function getCurrentInstance() {
+    return currenInstance
+}
+
+function setCurrentInstance(instance) {
+    currenInstance = instance
+}

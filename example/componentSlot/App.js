@@ -1,4 +1,4 @@
-import { h } from '../../lib/cb-vue.esm.js'
+import { h,createTextVnode } from '../../lib/cb-vue.esm.js'
 import { Foo } from './Foo.js'
 window.self = null
 export const App = {
@@ -6,7 +6,9 @@ export const App = {
     render() {
         const app = h('div', {}, 'app')
         const foo = h(Foo, {}, {
-            header:({age}) => h('p', {}, 'header' + age),
+            header:({age}) => [h('p', {}, 'header' + age),
+            createTextVnode('你好呀')
+        ],
             footer:() => h('p', {}, 'footer')
         })
         // const foo = h(Foo,{},h('p',{},'456'))
