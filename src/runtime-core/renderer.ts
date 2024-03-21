@@ -4,6 +4,8 @@ import { Fragment, Text } from "./vnode"
 import { createAppAPI } from "./createApp"
 import { effect } from "../reactivity/effect"
 import { EMPTY_OBJ } from "../shared"
+import { shouldUpdateComponent } from "./componentUpdateUtils"
+import { queueJobs } from "./scheduler"
 
 
 export function createRenderer(options) {
@@ -208,7 +210,7 @@ export function createRenderer(options) {
                 const nextChild = c2[nextIndex]
                 const anchor = nextIndex + 1 < l2 ? c2[nextIndex + 1].el : null
 
-                if(newIndexToOldIndexMap[i] === 0){
+                if (newIndexToOldIndexMap[i] === 0) {
                     // 创建
                     patch(null, nextChild, container, parentComponent, anchor)
                 }
@@ -254,8 +256,25 @@ export function createRenderer(options) {
     }
 
     function processComponent(n1, n2, container, parentComponent, anchor) {
-        // 挂载
-        mountComponent(n2, container, parentComponent, anchor)
+        if (!n1) {
+            // 挂载
+            mountComponent(n2, container, parentComponent, anchor)
+        } else {
+            // 更新
+            updateComponent(n1, n2)
+        }
+    }
+
+    function updateComponent(n1, n2) {
+        const instance = (n2.component = n1.component)
+        if(shouldUpdateComponent(n1, n2)){
+            instance.next = n2
+            instance.update()
+        }else{
+            // 不需要更新 但是需要 重置component
+            n2.el = n1.el
+            instance.vnode = n2
+        }
     }
 
     function mountElement(vnode: any, container: any, parentComponent, anchor) {
@@ -284,7 +303,7 @@ export function createRenderer(options) {
     }
 
     function mountComponent(initialVnode: any, container: any, parentComponent, anchor) {
-        const instance = createComponentInstance(initialVnode, parentComponent)
+        const instance = (initialVnode.component = createComponentInstance(initialVnode, parentComponent))
 
         setupComponent(instance)
         setupRenderEffect(instance, initialVnode, container, anchor)
@@ -293,7 +312,8 @@ export function createRenderer(options) {
 
 
     function setupRenderEffect(instance: any, initialVnode, container, anchor) {
-        effect(() => {
+        // 组件更新需要执行
+        instance.update = effect(() => {
             if (!instance.isMounted) {
                 console.log('init')
                 const { proxy } = instance
@@ -306,6 +326,14 @@ export function createRenderer(options) {
                 instance.isMounted = true
             } else {
                 console.log('update')
+                // 需要一个 新的vnode 来获取props next 更新后的,vnode 更新前的
+                const { next, vnode } = instance
+                if (next) {
+                    next.el = vnode.el
+
+                    updateComponentPreRender(instance, next)
+                }
+
                 const { proxy } = instance
                 const subTree = instance.render.call(proxy)
                 const prevSubTree = instance.subTree
@@ -317,6 +345,10 @@ export function createRenderer(options) {
                 patch(prevSubTree, subTree, container, instance, anchor)
             }
 
+        },{
+            scheduler(){
+                queueJobs(instance.update)
+            }
         })
 
     }
@@ -324,6 +356,14 @@ export function createRenderer(options) {
         createApp: createAppAPI(render)
     }
 }
+
+function updateComponentPreRender(instance, nextVNode) {
+    instance.vnode = nextVNode
+    instance.next = null
+
+    instance.props = nextVNode.props
+}
+
 // 最长递增子序列(不一定连续)
 function getSequence(arr) {
     const p = arr.slice()

@@ -5,11 +5,12 @@ import { PublicInstanceProxyHandlers } from "./componentPubliceInstance"
 import { initSlots } from "./componentSlots"
 import { proxyRefs } from "../reactivity"
 
-export function createComponentInstance(vnode,parent) {
+export function createComponentInstance(vnode, parent) {
     // console.log("createComponentInstance",parent)
     const component = {
         vnode,
         type: vnode.type,
+        next: null,
         setupState: {},
         props: {},
         slots: {},
@@ -17,15 +18,15 @@ export function createComponentInstance(vnode,parent) {
         parent,
         isMounted: false,
         subTree: {},
-        emit: () => {},
+        emit: () => { },
     }
-    component.emit = emit.bind(null,component) as any
+    component.emit = emit.bind(null, component) as any
     return component
 }
 export function setupComponent(instance) {
 
-    initProps(instance,instance.vnode.props)
-    initSlots(instance,instance.vnode.children)
+    initProps(instance, instance.vnode.props)
+    initSlots(instance, instance.vnode.children)
 
     setupStatefulComponent(instance)
 }
@@ -33,22 +34,22 @@ export function setupComponent(instance) {
 function setupStatefulComponent(instance: any) {
     const Component = instance.type
 
-    instance.proxy = new Proxy({_:instance},PublicInstanceProxyHandlers)
+    instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandlers)
 
     const { setup } = Component
-    if(setup){
+    if (setup) {
         setCurrentInstance(instance)
-        const setupResult = setup(shallowReadonly(instance.props),{
+        const setupResult = setup(shallowReadonly(instance.props), {
             emit: instance.emit,
         })
         setCurrentInstance(null)
 
-        handleSetupResult(instance,setupResult)
+        handleSetupResult(instance, setupResult)
     }
 }
 function handleSetupResult(instance: any, setupResult: any) {
     // setup:return function, obj
-    if(typeof setupResult === 'object') {
+    if (typeof setupResult === 'object') {
         instance.setupState = proxyRefs(setupResult)
     }
 
@@ -58,7 +59,7 @@ function handleSetupResult(instance: any, setupResult: any) {
 function finishComponentSetup(instance: any) {
     const Component = instance.type
     instance.render = Component.render
-    
+
 }
 
 let currenInstance = null
