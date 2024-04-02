@@ -10,6 +10,7 @@
     "build": "rollup -c",
     "build:watch": "rollup -c -w",
     "test": "jest",
+    "test:u": "jest -u",
     "test:watch": "jest --watchAll"
   },
   "author": "cuixiaorui",

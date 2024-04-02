@@ -1,11 +1,16 @@
+
+export * from './toDisplayString'
+
+
 export const extend = Object.assign
 
 export const EMPTY_OBJ = {}
 
 
-export const isObject = (val) => {
-    return val !== null && typeof val === 'object'
-}
+export const isObject = (val) => val !== null && typeof val === 'object'
+
+export const isString = (val) => typeof val === 'string'
+
 // 是否改变
 export const hasChanged = (val,newVal) => {
     return !Object.is(val,newVal)
